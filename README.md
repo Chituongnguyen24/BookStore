@@ -2,12 +2,12 @@
 
 Ứng dụng mua bán sách di động xây dựng bằng React Native (Expo), tích hợp MockAPI với 2 vai trò: Khách hàng và Nhân viên.
 
-## Cấu hình API trong file .env
+## Cấu hình API
 
-Mở file `.env` tại thư mục gốc và dán endpoint của bạn vào:
-```env
-EXPO_PUBLIC_MOCKAPI_URL=https://<project-id>.mockapi.io/api/v1
-EXPO_PUBLIC_STAFF_PIN=1234
+Cấu hình tại file `src/config/api.ts`:
+```typescript
+export const MOCKAPI_BASE_URL = 'https://6aeca94cfc3b911e6fd57cac.mockapi.io';
+export const STAFF_ACCESS_PIN = '1234';
 ```
 
 ### 2 Resource cần có trên MockAPI:
