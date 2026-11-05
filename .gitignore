@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native builds
+android/
+ios/
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Secrets & Local Env
+.env*.local
+
+# Editor directories and files
+.vscode/
+.claude/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+.DS_Store
+Thumbs.db
