@@ -30,6 +30,12 @@ yarn-error.*
 *.sln
 *.sw?
 
+# Coursework documents (not pushed to repo)
+*.docx
+*.doc
+*.pdf
+docs/
+
 # OS metadata
 .DS_Store
 Thumbs.db
