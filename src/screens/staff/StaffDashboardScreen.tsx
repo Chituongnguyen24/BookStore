@@ -27,9 +27,9 @@ export const StaffDashboardScreen: React.FC = () => {
     return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
   };
 
-  // KPIs
+  // KPIs - Doanh thu chỉ tính đơn Hoàn tất
   const totalRevenue = orders
-    .filter((o) => o.status !== 'Đã hủy')
+    .filter((o) => o.status === 'Hoàn thành')
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
   const pendingOrders = orders.filter((o) => o.status === 'Chờ xác nhận');
@@ -138,16 +138,6 @@ export const StaffDashboardScreen: React.FC = () => {
             </View>
             <Text style={styles.actionButtonText}>Xử lý đơn hàng</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={openMockApiModal}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#F3E8FF' }]}>
-              <Feather name="cloud" size={20} color="#7C3AED" />
-            </View>
-            <Text style={styles.actionButtonText}>Cấu hình MockAPI</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -200,10 +190,10 @@ export const StaffDashboardScreen: React.FC = () => {
               <View style={styles.pendingActions}>
                 <TouchableOpacity
                   style={styles.approveBtn}
-                  onPress={() => updateOrderStatus(order.id, 'Đang xử lý')}
+                  onPress={() => updateOrderStatus(order.id, 'Đang giao')}
                 >
-                  <Feather name="check" size={14} color="#FFFFFF" />
-                  <Text style={styles.approveBtnText}>Duyệt đơn</Text>
+                  <Feather name="truck" size={14} color="#FFFFFF" />
+                  <Text style={styles.approveBtnText}>Duyệt & Giao</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -280,7 +270,8 @@ const styles = StyleSheet.create({
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   kpiCard: {
     width: '48%',

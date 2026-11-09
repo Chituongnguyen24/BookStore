@@ -20,7 +20,6 @@ export const OrderHistoryScreen: React.FC = () => {
   const filterTabs = [
     'Tất cả',
     'Chờ xác nhận',
-    'Đang xử lý',
     'Đang giao',
     'Hoàn thành',
     'Đã hủy',

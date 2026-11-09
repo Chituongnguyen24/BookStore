@@ -153,14 +153,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Cart operations
   const addToCart = useCallback((book: Book, quantity = 1) => {
+    if (book.stock <= 0) {
+      showToast('Sách đã hết hàng, không thể thêm vào giỏ');
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.book.id === book.id);
       if (existing) {
+        const targetQty = existing.quantity + quantity;
+        if (targetQty > book.stock) {
+          showToast(`Chỉ còn ${book.stock} cuốn trong kho`);
+          return prev.map((item) =>
+            item.book.id === book.id ? { ...item, quantity: book.stock } : item
+          );
+        }
         return prev.map((item) =>
-          item.book.id === book.id ? { ...item, quantity: item.quantity + quantity } : item
+          item.book.id === book.id ? { ...item, quantity: targetQty } : item
         );
       }
-      return [...prev, { book, quantity }];
+      const initialQty = Math.min(quantity, book.stock);
+      return [...prev, { book, quantity: initialQty }];
     });
     showToast(`Đã thêm "${book.title.slice(0, 24)}..." vào giỏ`);
   }, [showToast]);
@@ -176,7 +188,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     setCart((prev) =>
-      prev.map((item) => (item.book.id === bookId ? { ...item, quantity } : item))
+      prev.map((item) => {
+        if (item.book.id === bookId) {
+          const clampedQty = Math.min(quantity, item.book.stock);
+          return { ...item, quantity: clampedQty };
+        }
+        return item;
+      })
     );
   }, []);
 
@@ -226,10 +244,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus): Promise<boolean> => {
       try {
+        const targetOrder = orders.find((o) => o.id === orderId);
         await MockApiService.updateOrderStatus(mockApiUrl, orderId, status);
         setOrders((prev) =>
           prev.map((order) => (order.id === orderId ? { ...order, status } : order))
         );
+
+        // Hủy đơn thì hoàn lại số lượng tồn kho
+        if (status === 'Đã hủy' && targetOrder && targetOrder.status !== 'Đã hủy') {
+          setBooks((prev) =>
+            prev.map((book) => {
+              const returnedItem = targetOrder.items.find((item) => item.bookId === book.id);
+              if (returnedItem) {
+                const replenishedStock = book.stock + returnedItem.quantity;
+                MockApiService.updateBook(mockApiUrl, book.id, { stock: replenishedStock }).catch(() => {});
+                return { ...book, stock: replenishedStock };
+              }
+              return book;
+            })
+          );
+        }
+
         showToast(`Đã chuyển đơn ${orderId} sang "${status}"`);
         return true;
       } catch {
@@ -237,7 +272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
     },
-    [mockApiUrl, showToast]
+    [mockApiUrl, orders, showToast]
   );
 
   // Books CRUD for Staff

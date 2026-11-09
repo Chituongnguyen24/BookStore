@@ -20,7 +20,6 @@ export const StaffOrdersScreen: React.FC = () => {
   const statusTabs = [
     'Tất cả',
     'Chờ xác nhận',
-    'Đang xử lý',
     'Đang giao',
     'Hoàn thành',
     'Đã hủy',
@@ -255,11 +254,11 @@ export const StaffOrdersScreen: React.FC = () => {
                         <TouchableOpacity
                           style={styles.actionApprove}
                           onPress={() =>
-                            handleUpdateStatus(item, 'Đang xử lý')
+                            handleUpdateStatus(item, 'Đang giao')
                           }
                         >
-                          <Feather name="check" size={14} color="#FFFFFF" />
-                          <Text style={styles.actionApproveText}>Duyệt đơn</Text>
+                          <Feather name="truck" size={14} color="#FFFFFF" />
+                          <Text style={styles.actionApproveText}>Duyệt & Giao</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -268,7 +267,7 @@ export const StaffOrdersScreen: React.FC = () => {
                             handleUpdateStatus(item, 'Đã hủy')
                           }
                         >
-                          <Text style={styles.actionRejectText}>Hủy</Text>
+                          <Text style={styles.actionRejectText}>Hủy đơn</Text>
                         </TouchableOpacity>
                       </>
                     )}

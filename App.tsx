@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { Platform, SafeAreaView, StyleSheet, View } from 'react-native';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { FloatingCartButton } from './src/components/FloatingCartButton';
 import { Header } from './src/components/Header';
@@ -48,31 +48,33 @@ const MainScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={styles.webWrapper}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
 
-      {/* Global Store Header */}
-      <Header />
+        {/* Global Store Header */}
+        <Header />
 
-      {/* Dynamic Screen Content */}
-      <View style={styles.body}>{renderContent()}</View>
+        {/* Dynamic Screen Content */}
+        <View style={styles.body}>{renderContent()}</View>
 
-      {/* Customer Floating Cart FAB */}
-      <FloatingCartButton />
+        {/* Customer Floating Cart FAB */}
+        <FloatingCartButton />
 
-      {/* Bottom Navigation */}
-      <BottomTabBar />
+        {/* Bottom Navigation */}
+        <BottomTabBar />
 
-      {/* Modals */}
-      <BookDetailModal />
-      <CartModal />
-      <CheckoutModal />
-      <BookFormModal />
-      <MockApiSettingsModal />
+        {/* Modals */}
+        <BookDetailModal />
+        <CartModal />
+        <CheckoutModal />
+        <BookFormModal />
+        <MockApiSettingsModal />
 
-      {/* In-app Toast feedback */}
-      <Toast />
-    </SafeAreaView>
+        {/* In-app Toast feedback */}
+        <Toast />
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -85,9 +87,19 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  webWrapper: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    width: '100%',
+    height: '100%',
+  },
+  container: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative',
+    height: '100%',
   },
   body: {
     flex: 1,

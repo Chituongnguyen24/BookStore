@@ -5,6 +5,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -47,6 +48,14 @@ export const CheckoutModal: React.FC = () => {
     }
     if (!phone.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập số điện thoại liên hệ.');
+      return;
+    }
+    const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+    if (!phoneRegex.test(phone.trim())) {
+      Alert.alert(
+        'Số điện thoại không hợp lệ',
+        'Vui lòng nhập số điện thoại di động hợp lệ (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09).'
+      );
       return;
     }
     if (!address.trim()) {

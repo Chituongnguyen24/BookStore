@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { Book } from '../types';
@@ -16,9 +17,24 @@ interface BookCardProps {
   book: Book;
 }
 
+// Tính số cột dựa trên chiều rộng màn hình
+export const getNumColumns = (width: number): number => {
+  if (width >= 1200) return 5;
+  if (width >= 900) return 4;
+  if (width >= 600) return 3;
+  return 2;
+};
+
 export const BookCard: React.FC<BookCardProps> = ({ book }) => {
   const { role, addToCart, openBookDetail, openBookForm, deleteBook } = useApp();
   const [imageError, setImageError] = useState(false);
+  const { width } = useWindowDimensions();
+
+  const numCols = getNumColumns(width);
+  const GAP = 12;
+  const H_PADDING = 16;
+  // Chiều rộng mỗi card = (màn hình - 2 lề - khoảng cách giữa các cột) / số cột
+  const cardWidth = (width - H_PADDING * 2 - GAP * (numCols - 1)) / numCols;
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
@@ -41,7 +57,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
 
   return (
     <Pressable
-      style={styles.card}
+      style={[styles.card, { width: cardWidth }]}
       onPress={() => openBookDetail(book)}
       android_ripple={{ color: '#F1F5F9' }}
     >
@@ -146,7 +162,6 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
 
 const styles = StyleSheet.create({
   card: {
-    width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
@@ -164,8 +179,14 @@ const styles = StyleSheet.create({
     aspectRatio: 0.85,
     backgroundColor: '#F1F5F9',
     position: 'relative',
+    overflow: 'hidden',
   },
   coverImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
   },

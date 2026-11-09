@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,

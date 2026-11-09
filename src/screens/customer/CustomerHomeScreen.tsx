@@ -11,8 +11,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { BookCard } from '../../components/BookCard';
+import { BookCard, getNumColumns } from '../../components/BookCard';
 import { CategoryChips } from '../../components/CategoryChips';
 import { useApp } from '../../context/AppContext';
 
@@ -30,6 +31,10 @@ export const CustomerHomeScreen: React.FC = () => {
     isLoading,
     refreshData,
   } = useApp();
+
+  const { width } = useWindowDimensions();
+  const numCols = getNumColumns(width);
+  const GAP = 12;
 
   const sortOptions = [
     { key: 'default', label: 'Phổ biến' },
@@ -186,8 +191,9 @@ export const CustomerHomeScreen: React.FC = () => {
         <FlatList
           data={filteredBooks}
           keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
+          numColumns={numCols}
+          key={numCols}
+          columnWrapperStyle={numCols > 1 ? { gap: GAP, paddingHorizontal: 16 } : undefined}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={renderHeader}
           renderItem={({ item }) => <BookCard book={item} />}
@@ -336,11 +342,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listContent: {
-    paddingHorizontal: 12,
     paddingBottom: 100,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
   },
   centerContainer: {
     flex: 1,
