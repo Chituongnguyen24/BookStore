@@ -4,7 +4,6 @@ import { Platform, SafeAreaView, StyleSheet, View } from 'react-native';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { FloatingCartButton } from './src/components/FloatingCartButton';
 import { Header } from './src/components/Header';
-import { MockApiSettingsModal } from './src/components/MockApiSettingsModal';
 import { Toast } from './src/components/Toast';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { AccountScreen } from './src/screens/customer/AccountScreen';
@@ -69,7 +68,6 @@ const MainScreen: React.FC = () => {
         <CartModal />
         <CheckoutModal />
         <BookFormModal />
-        <MockApiSettingsModal />
 
         {/* In-app Toast feedback */}
         <Toast />

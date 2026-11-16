@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useApp } from '../../context/AppContext';
-import { CATEGORIES } from '../../services/mockapi';
+import { CATEGORIES } from '../../services/apiService';
 import { useResponsive } from '../../utils/responsive';
 
 export const BookFormModal: React.FC = () => {
