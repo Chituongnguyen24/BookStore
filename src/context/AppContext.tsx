@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_MOCKAPI_URL, INITIAL_BOOKS, INITIAL_ORDERS, MockApiService } from '../services/mockapi';
+import { BookApiService } from '../services/apiService';
 import { Book, CartItem, CustomerTab, Order, OrderStatus, StaffTab, UserRole } from '../types';
 
 interface AppContextType {
@@ -52,16 +52,10 @@ interface AppContextType {
   openBookForm: (book?: Book) => void;
   closeBookForm: () => void;
 
-  // MockAPI & Sync
-  mockApiUrl: string;
-  setMockApiUrl: (url: string) => void;
+  // Status & Sync
   isOnline: boolean;
   isLoading: boolean;
   refreshData: () => Promise<void>;
-  seedDataToApi: () => Promise<{ success: boolean; message: string }>;
-  isMockApiModalOpen: boolean;
-  openMockApiModal: () => void;
-  closeMockApiModal: () => void;
 
   // Notifications
   toastMessage: string | null;
@@ -75,8 +69,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [customerTab, setCustomerTab] = useState<CustomerTab>('home');
   const [staffTab, setStaffTab] = useState<StaffTab>('dashboard');
 
-  const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,10 +84,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isBookFormOpen, setIsBookFormOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
 
-  const [mockApiUrl, setMockApiUrlState] = useState(DEFAULT_MOCKAPI_URL);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [isMockApiModalOpen, setIsMockApiModalOpen] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -122,30 +114,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsBookFormOpen(false);
   }, []);
 
-  const openMockApiModal = useCallback(() => setIsMockApiModalOpen(true), []);
-  const closeMockApiModal = useCallback(() => setIsMockApiModalOpen(false), []);
-
-  const setMockApiUrl = useCallback((url: string) => {
-    setMockApiUrlState(url);
-  }, []);
-
-  // Fetch initial books and orders from MockAPI
+  // Fetch initial books and orders from SQLite Backend via Axios
   const refreshData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [fetchedBooks, fetchedOrders] = await Promise.all([
-        MockApiService.getBooks(mockApiUrl),
-        MockApiService.getOrders(mockApiUrl),
+        BookApiService.getBooks(),
+        BookApiService.getOrders(),
       ]);
       setBooks(fetchedBooks);
       setOrders(fetchedOrders);
       setIsOnline(true);
-    } catch {
+    } catch (error) {
+      console.warn('Backend SQLite connection error:', error);
       setIsOnline(false);
+      showToast('Không thể kết nối đến Backend SQLite');
     } finally {
       setIsLoading(false);
     }
-  }, [mockApiUrl]);
+  }, [showToast]);
 
   useEffect(() => {
     refreshData();
@@ -213,56 +200,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async (orderData: Omit<Order, 'id' | 'createdAt'>): Promise<Order> => {
       setIsLoading(true);
       try {
-        const newOrder = await MockApiService.createOrder(mockApiUrl, orderData);
+        const newOrder = await BookApiService.createOrder(orderData);
         setOrders((prev) => [newOrder, ...prev]);
 
-        // Reduce local book stock
-        setBooks((prev) =>
-          prev.map((book) => {
-            const purchased = orderData.items.find((item) => item.bookId === book.id);
-            if (purchased) {
-              const updatedStock = Math.max(0, book.stock - purchased.quantity);
-              // Trigger update on MockAPI asynchronously
-              MockApiService.updateBook(mockApiUrl, book.id, { stock: updatedStock }).catch(() => {});
-              return { ...book, stock: updatedStock };
-            }
-            return book;
-          })
-        );
+        // Refresh lại danh sách sách để cập nhật tồn kho đã bị trừ trong SQLite
+        const updatedBooks = await BookApiService.getBooks();
+        setBooks(updatedBooks);
 
         clearCart();
         closeCheckout();
         showToast('Đặt hàng thành công! Mã đơn: ' + newOrder.id);
         return newOrder;
+      } catch (err: any) {
+        showToast('Lỗi khi tạo đơn hàng: ' + (err.message || ''));
+        throw err;
       } finally {
         setIsLoading(false);
       }
     },
-    [mockApiUrl, clearCart, closeCheckout, showToast]
+    [clearCart, closeCheckout, showToast]
   );
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus): Promise<boolean> => {
       try {
-        const targetOrder = orders.find((o) => o.id === orderId);
-        await MockApiService.updateOrderStatus(mockApiUrl, orderId, status);
+        const updatedOrder = await BookApiService.updateOrderStatus(orderId, status);
         setOrders((prev) =>
-          prev.map((order) => (order.id === orderId ? { ...order, status } : order))
+          prev.map((order) => (order.id === orderId ? updatedOrder : order))
         );
 
-        // Hủy đơn thì hoàn lại số lượng tồn kho
-        if (status === 'Đã hủy' && targetOrder && targetOrder.status !== 'Đã hủy') {
-          setBooks((prev) =>
-            prev.map((book) => {
-              const returnedItem = targetOrder.items.find((item) => item.bookId === book.id);
-              if (returnedItem) {
-                const replenishedStock = book.stock + returnedItem.quantity;
-                MockApiService.updateBook(mockApiUrl, book.id, { stock: replenishedStock }).catch(() => {});
-                return { ...book, stock: replenishedStock };
-              }
-              return book;
-            })
-          );
+        // Hủy đơn thì kho được hoàn lại trong SQLite, load lại sách
+        if (status === 'Đã hủy') {
+          const updatedBooks = await BookApiService.getBooks();
+          setBooks(updatedBooks);
         }
 
         showToast(`Đã chuyển đơn ${orderId} sang "${status}"`);
@@ -272,7 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
     },
-    [mockApiUrl, orders, showToast]
+    [showToast]
   );
 
   // Books CRUD for Staff
@@ -280,7 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async (bookData: Omit<Book, 'id'>): Promise<boolean> => {
       setIsLoading(true);
       try {
-        const created = await MockApiService.createBook(mockApiUrl, bookData);
+        const created = await BookApiService.createBook(bookData);
         setBooks((prev) => [created, ...prev]);
         closeBookForm();
         showToast(`Đã thêm sách "${created.title.slice(0, 20)}..." thành công`);
@@ -292,16 +262,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsLoading(false);
       }
     },
-    [mockApiUrl, closeBookForm, showToast]
+    [closeBookForm, showToast]
   );
 
   const updateBook = useCallback(
     async (id: string, bookData: Partial<Book>): Promise<boolean> => {
       setIsLoading(true);
       try {
-        const updated = await MockApiService.updateBook(mockApiUrl, id, bookData);
+        const updated = await BookApiService.updateBook(id, bookData);
         setBooks((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, ...updated } : b))
+          prev.map((b) => (b.id === id ? updated : b))
         );
         closeBookForm();
         showToast('Cập nhật thông tin sách thành công');
@@ -313,14 +283,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsLoading(false);
       }
     },
-    [mockApiUrl, closeBookForm, showToast]
+    [closeBookForm, showToast]
   );
 
   const deleteBook = useCallback(
     async (id: string): Promise<boolean> => {
       setIsLoading(true);
       try {
-        await MockApiService.deleteBook(mockApiUrl, id);
+        await BookApiService.deleteBook(id);
         setBooks((prev) => prev.filter((b) => b.id !== id));
         showToast('Đã xóa sách khỏi danh mục');
         return true;
@@ -331,22 +301,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsLoading(false);
       }
     },
-    [mockApiUrl, showToast]
+    [showToast]
   );
-
-  const seedDataToApi = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await MockApiService.seedBooksToMockApi(mockApiUrl);
-      if (res.success) {
-        await refreshData();
-      }
-      showToast(res.message);
-      return res;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [mockApiUrl, refreshData, showToast]);
 
   // Filtered & Sorted books for customer view
   const filteredBooks = useMemo(() => {
@@ -425,15 +381,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     editingBook,
     openBookForm,
     closeBookForm,
-    mockApiUrl,
-    setMockApiUrl,
     isOnline,
     isLoading,
     refreshData,
-    seedDataToApi,
-    isMockApiModalOpen,
-    openMockApiModal,
-    closeMockApiModal,
     toastMessage,
     showToast,
   };
@@ -448,4 +398,3 @@ export const useApp = () => {
   }
   return context;
 };
-

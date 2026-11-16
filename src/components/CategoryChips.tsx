@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { CATEGORIES } from '../services/mockapi';
+import { CATEGORIES } from '../services/apiService';
 import { MAX_CONTENT_WIDTH, useResponsive } from '../utils/responsive';
 
 export const CategoryChips: React.FC = () => {
