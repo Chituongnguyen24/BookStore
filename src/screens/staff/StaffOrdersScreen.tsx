@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
   RefreshControl,
@@ -12,10 +11,23 @@ import {
 } from 'react-native';
 import { useApp } from '../../context/AppContext';
 import { Order, OrderStatus } from '../../types';
+import {
+  confirmDialog,
+  MAX_CONTENT_WIDTH,
+  useResponsive,
+} from '../../utils/responsive';
 
 export const StaffOrdersScreen: React.FC = () => {
   const { orders, updateOrderStatus, isLoading, refreshData } = useApp();
   const [activeStatus, setActiveStatus] = useState<string>('Tất cả');
+  const { isDesktop, horizontalPadding, contentWidth } = useResponsive();
+
+  const numColumns = isDesktop ? 2 : 1;
+  const cardGap = 16;
+  const cardWidth =
+    numColumns === 2
+      ? (contentWidth - horizontalPadding * 2 - cardGap) / 2
+      : undefined;
 
   const statusTabs = [
     'Tất cả',
@@ -66,61 +78,66 @@ export const StaffOrdersScreen: React.FC = () => {
   };
 
   const handleUpdateStatus = (order: Order, newStatus: OrderStatus) => {
-    Alert.alert(
+    confirmDialog(
       'Cập nhật trạng thái đơn',
       `Chuyển đơn hàng ${order.id} sang trạng thái "${newStatus}"?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xác nhận',
-          onPress: () => updateOrderStatus(order.id, newStatus),
-        },
-      ]
+      () => updateOrderStatus(order.id, newStatus),
+      'Xác nhận',
+      newStatus === 'Đã hủy'
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* Title */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Quản lý đơn hàng</Text>
-      </View>
+      {/* Top Header & Status Filters */}
+      <View style={styles.topSection}>
+        <View
+          style={[
+            styles.centeredBlock,
+            { paddingHorizontal: horizontalPadding },
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Quản lý đơn hàng</Text>
+            <Text style={styles.headerSubtitle}>
+              Duyệt đơn, cập nhật giao hàng và theo dõi tiến độ xử lý
+            </Text>
+          </View>
 
-      {/* Status Filter Scroll */}
-      <View style={styles.filterWrapper}>
-        <FlatList
-          horizontal
-          data={statusTabs}
-          keyExtractor={(item) => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item }) => {
-            const isActive = activeStatus === item;
-            const count =
-              item === 'Tất cả'
-                ? orders.length
-                : orders.filter((o) => o.status === item).length;
+          <FlatList
+            horizontal
+            data={statusTabs}
+            keyExtractor={(item) => item}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterList}
+            renderItem={({ item }) => {
+              const isActive = activeStatus === item;
+              const count =
+                item === 'Tất cả'
+                  ? orders.length
+                  : orders.filter((o) => o.status === item).length;
 
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.filterTab,
-                  isActive && styles.filterTabActive,
-                ]}
-                onPress={() => setActiveStatus(item)}
-              >
-                <Text
+              return (
+                <TouchableOpacity
                   style={[
-                    styles.filterTabText,
-                    isActive && styles.filterTabTextActive,
+                    styles.filterTab,
+                    isActive && styles.filterTabActive,
                   ]}
+                  onPress={() => setActiveStatus(item)}
                 >
-                  {item} ({count})
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      isActive && styles.filterTabTextActive,
+                    ]}
+                  >
+                    {item} ({count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
       </View>
 
       {/* Orders List */}
@@ -133,7 +150,23 @@ export const StaffOrdersScreen: React.FC = () => {
         <FlatList
           data={filteredOrders}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          numColumns={numColumns}
+          key={`staff-orders-${numColumns}`}
+          columnWrapperStyle={
+            numColumns > 1
+              ? {
+                  gap: cardGap,
+                  paddingHorizontal: horizontalPadding,
+                  maxWidth: MAX_CONTENT_WIDTH,
+                  width: '100%',
+                  alignSelf: 'center',
+                }
+              : undefined
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            numColumns === 1 && { paddingHorizontal: horizontalPadding },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
@@ -145,97 +178,105 @@ export const StaffOrdersScreen: React.FC = () => {
             const stStyle = getStatusStyle(item.status);
 
             return (
-              <View style={styles.card}>
-                {/* Header */}
-                <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={styles.orderId}>{item.id}</Text>
-                    <Text style={styles.orderDate}>
-                      {formatDate(item.createdAt)}
-                    </Text>
-                  </View>
+              <View
+                style={[
+                  styles.card,
+                  cardWidth ? { width: cardWidth } : undefined,
+                ]}
+              >
+                <View>
+                  {/* Header */}
+                  <View style={styles.cardHeader}>
+                    <View>
+                      <Text style={styles.orderId}>{item.id}</Text>
+                      <Text style={styles.orderDate}>
+                        {formatDate(item.createdAt)}
+                      </Text>
+                    </View>
 
-                  <View
-                    style={[
-                      styles.statusPill,
-                      {
-                        backgroundColor: stStyle.bg,
-                        borderColor: stStyle.border,
-                      },
-                    ]}
-                  >
-                    <Text
+                    <View
                       style={[
-                        styles.statusPillText,
-                        { color: stStyle.text },
+                        styles.statusPill,
+                        {
+                          backgroundColor: stStyle.bg,
+                          borderColor: stStyle.border,
+                        },
                       ]}
                     >
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Customer Information */}
-                <View style={styles.customerBox}>
-                  <View style={styles.customerRow}>
-                    <Feather name="user" size={13} color="#2563EB" />
-                    <Text style={styles.customerName}>
-                      {item.customerName}
-                    </Text>
-                    <Text style={styles.customerPhone}>({item.phone})</Text>
-                  </View>
-
-                  <View style={styles.customerRow}>
-                    <Feather name="map-pin" size={13} color="#64748B" />
-                    <Text style={styles.customerAddress} numberOfLines={2}>
-                      {item.address}
-                    </Text>
-                  </View>
-
-                  {item.note ? (
-                    <View style={styles.customerRow}>
-                      <Feather name="message-square" size={13} color="#F59E0B" />
-                      <Text style={styles.customerNote}>
-                        Ghi chú: {item.note}
+                      <Text
+                        style={[styles.statusPillText, { color: stStyle.text }]}
+                      >
+                        {item.status}
                       </Text>
                     </View>
-                  ) : null}
-
-                  <View style={styles.customerRow}>
-                    <Ionicons name="card-outline" size={13} color="#64748B" />
-                    <Text style={styles.paymentMethod}>
-                      Hình thức: {item.paymentMethod}
-                    </Text>
                   </View>
-                </View>
 
-                {/* Ordered Items Preview */}
-                <View style={styles.itemsBox}>
-                  <Text style={styles.itemsBoxHeader}>Sản phẩm:</Text>
-                  {item.items.map((prod, idx) => (
-                    <View key={idx} style={styles.itemRow}>
-                      <Image
-                        source={
-                          prod.coverImage
-                            ? { uri: prod.coverImage }
-                            : require('../../../assets/BookCover.jpg')
-                        }
-                        style={styles.itemThumb}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.itemInfo}>
-                        <Text style={styles.itemTitle} numberOfLines={1}>
-                          {prod.title}
-                        </Text>
-                        <Text style={styles.itemQty}>
-                          Số lượng: {prod.quantity} cuốn
+                  {/* Customer Information */}
+                  <View style={styles.customerBox}>
+                    <View style={styles.customerRow}>
+                      <Feather name="user" size={13} color="#2563EB" />
+                      <Text style={styles.customerName}>
+                        {item.customerName}
+                      </Text>
+                      <Text style={styles.customerPhone}>({item.phone})</Text>
+                    </View>
+
+                    <View style={styles.customerRow}>
+                      <Feather name="map-pin" size={13} color="#64748B" />
+                      <Text style={styles.customerAddress} numberOfLines={2}>
+                        {item.address}
+                      </Text>
+                    </View>
+
+                    {item.note ? (
+                      <View style={styles.customerRow}>
+                        <Feather
+                          name="message-square"
+                          size={13}
+                          color="#F59E0B"
+                        />
+                        <Text style={styles.customerNote}>
+                          Ghi chú: {item.note}
                         </Text>
                       </View>
-                      <Text style={styles.itemPrice}>
-                        {formatPrice(prod.price * prod.quantity)}
+                    ) : null}
+
+                    <View style={styles.customerRow}>
+                      <Ionicons name="card-outline" size={13} color="#64748B" />
+                      <Text style={styles.paymentMethod}>
+                        Hình thức: {item.paymentMethod}
                       </Text>
                     </View>
-                  ))}
+                  </View>
+
+                  {/* Ordered Items Preview */}
+                  <View style={styles.itemsBox}>
+                    <Text style={styles.itemsBoxHeader}>Sản phẩm đặt mua:</Text>
+                    {item.items.map((prod, idx) => (
+                      <View key={idx} style={styles.itemRow}>
+                        <Image
+                          source={
+                            prod.coverImage
+                              ? { uri: prod.coverImage }
+                              : require('../../../assets/BookCover.jpg')
+                          }
+                          style={styles.itemThumb}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.itemInfo}>
+                          <Text style={styles.itemTitle} numberOfLines={1}>
+                            {prod.title}
+                          </Text>
+                          <Text style={styles.itemQty}>
+                            Số lượng: {prod.quantity} cuốn
+                          </Text>
+                        </View>
+                        <Text style={styles.itemPrice}>
+                          {formatPrice(prod.price * prod.quantity)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
 
                 {/* Total and Pipeline Buttons */}
@@ -253,19 +294,17 @@ export const StaffOrdersScreen: React.FC = () => {
                       <>
                         <TouchableOpacity
                           style={styles.actionApprove}
-                          onPress={() =>
-                            handleUpdateStatus(item, 'Đang giao')
-                          }
+                          onPress={() => handleUpdateStatus(item, 'Đang giao')}
                         >
                           <Feather name="truck" size={14} color="#FFFFFF" />
-                          <Text style={styles.actionApproveText}>Duyệt & Giao</Text>
+                          <Text style={styles.actionApproveText}>
+                            Duyệt & Giao
+                          </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           style={styles.actionReject}
-                          onPress={() =>
-                            handleUpdateStatus(item, 'Đã hủy')
-                          }
+                          onPress={() => handleUpdateStatus(item, 'Đã hủy')}
                         >
                           <Text style={styles.actionRejectText}>Hủy đơn</Text>
                         </TouchableOpacity>
@@ -275,9 +314,7 @@ export const StaffOrdersScreen: React.FC = () => {
                     {item.status === 'Đang xử lý' && (
                       <TouchableOpacity
                         style={styles.actionShipping}
-                        onPress={() =>
-                          handleUpdateStatus(item, 'Đang giao')
-                        }
+                        onPress={() => handleUpdateStatus(item, 'Đang giao')}
                       >
                         <Feather name="truck" size={14} color="#FFFFFF" />
                         <Text style={styles.actionShippingText}>Giao hàng</Text>
@@ -287,14 +324,14 @@ export const StaffOrdersScreen: React.FC = () => {
                     {item.status === 'Đang giao' && (
                       <TouchableOpacity
                         style={styles.actionComplete}
-                        onPress={() =>
-                          handleUpdateStatus(item, 'Hoàn thành')
-                        }
+                        onPress={() => handleUpdateStatus(item, 'Hoàn thành')}
                       >
-                        <Feather name="check-circle" size={14} color="#FFFFFF" />
-                        <Text style={styles.actionCompleteText}>
-                          Hoàn tất
-                        </Text>
+                        <Feather
+                          name="check-circle"
+                          size={14}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.actionCompleteText}>Hoàn tất</Text>
                       </TouchableOpacity>
                     )}
 
@@ -327,46 +364,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+  topSection: {
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 12,
+  },
+  centeredBlock: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
+  },
+  header: {
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     marginTop: 2,
   },
-  filterWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 8,
-  },
   filterList: {
-    paddingHorizontal: 16,
     gap: 8,
   },
   filterTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   filterTabActive: {
     backgroundColor: '#EFF6FF',
-    borderWidth: 1,
     borderColor: '#3B82F6',
   },
   filterTabText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#64748B',
   },
   filterTabTextActive: {
@@ -374,21 +414,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listContent: {
-    padding: 16,
-    gap: 14,
+    paddingTop: 16,
+    gap: 16,
     paddingBottom: 100,
+    maxWidth: MAX_CONTENT_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
+    justifyContent: 'space-between',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -396,7 +440,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   orderId: {
     fontSize: 14,
@@ -410,7 +454,7 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -420,10 +464,10 @@ const styles = StyleSheet.create({
   },
   customerBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 10,
+    padding: 12,
     marginTop: 10,
-    gap: 5,
+    gap: 6,
   },
   customerRow: {
     flexDirection: 'row',
@@ -431,7 +475,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   customerName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -440,22 +484,22 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   customerAddress: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#475569',
     flex: 1,
   },
   customerNote: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#D97706',
     fontStyle: 'italic',
     flex: 1,
   },
   paymentMethod: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
   },
   itemsBox: {
-    marginTop: 10,
+    marginTop: 12,
     gap: 8,
   },
   itemsBoxHeader: {
@@ -470,25 +514,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   itemThumb: {
-    width: 32,
-    height: 44,
-    borderRadius: 4,
+    width: 36,
+    height: 48,
+    borderRadius: 6,
     backgroundColor: '#F1F5F9',
   },
   itemInfo: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#0F172A',
   },
   itemQty: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#64748B',
   },
   itemPrice: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -496,8 +540,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -506,7 +550,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     color: '#DC2626',
   },
@@ -519,10 +563,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
   },
   actionApproveText: {
     color: '#FFFFFF',
@@ -530,9 +574,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   actionReject: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FECACA',
     backgroundColor: '#FEF2F2',
@@ -546,10 +590,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#059669',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
   },
   actionShippingText: {
     color: '#FFFFFF',
@@ -560,10 +604,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#047857',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
   },
   actionCompleteText: {
     color: '#FFFFFF',
@@ -603,4 +647,3 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 });
-

@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { CustomerTab, StaffTab } from '../types';
+import { useResponsive } from '../utils/responsive';
 
 export const BottomTabBar: React.FC = () => {
   const {
@@ -14,9 +15,19 @@ export const BottomTabBar: React.FC = () => {
     orders,
   } = useApp();
 
-  const pendingOrdersCount = orders.filter((o) => o.status === 'Chờ xác nhận').length;
+  const { isWide } = useResponsive();
+
+  // Trên màn hình rộng (Tablet/Desktop >= 768px), điều hướng đã nằm trên Header
+  if (isWide) return null;
+
+  const pendingOrdersCount = orders.filter(
+    (o) => o.status === 'Chờ xác nhận'
+  ).length;
   const activeOrdersCount = orders.filter(
-    (o) => o.status === 'Chờ xác nhận' || o.status === 'Đang xử lý' || o.status === 'Đang giao'
+    (o) =>
+      o.status === 'Chờ xác nhận' ||
+      o.status === 'Đang xử lý' ||
+      o.status === 'Đang giao'
   ).length;
 
   if (role === 'customer') {
@@ -27,7 +38,12 @@ export const BottomTabBar: React.FC = () => {
       badge?: number;
     }[] = [
       { key: 'home', label: 'Trang chủ', icon: 'home' },
-      { key: 'orders', label: 'Đơn mua', icon: 'shopping-bag', badge: activeOrdersCount },
+      {
+        key: 'orders',
+        label: 'Đơn mua',
+        icon: 'shopping-bag',
+        badge: activeOrdersCount,
+      },
       { key: 'account', label: 'Tài khoản', icon: 'user' },
     ];
 
@@ -103,7 +119,11 @@ export const BottomTabBar: React.FC = () => {
               {tab.isIonicons ? (
                 <Ionicons name={tab.icon} size={21} color={color} />
               ) : (
-                <MaterialCommunityIcons name={tab.icon} size={21} color={color} />
+                <MaterialCommunityIcons
+                  name={tab.icon}
+                  size={21}
+                  color={color}
+                />
               )}
               {tab.badge && tab.badge > 0 ? (
                 <View style={styles.tabBadge}>

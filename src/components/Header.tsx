@@ -1,18 +1,43 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useApp } from '../context/AppContext';
+import { CustomerTab, StaffTab } from '../types';
+import { MAX_CONTENT_WIDTH, useResponsive } from '../utils/responsive';
 
 export const Header: React.FC = () => {
   const {
     role,
     setRole,
+    customerTab,
+    setCustomerTab,
+    staffTab,
+    setStaffTab,
     cartCount,
     openCart,
     openBookForm,
-    isOnline,
+    orders,
     showToast,
   } = useApp();
+
+  const { isWide, isDesktop } = useResponsive();
+
+  const pendingOrdersCount = orders.filter(
+    (o) => o.status === 'Chờ xác nhận'
+  ).length;
+  const activeOrdersCount = orders.filter(
+    (o) =>
+      o.status === 'Chờ xác nhận' ||
+      o.status === 'Đang xử lý' ||
+      o.status === 'Đang giao'
+  ).length;
 
   const handleStaffLogout = () => {
     setRole('customer');
@@ -20,37 +45,104 @@ export const Header: React.FC = () => {
   };
 
   if (role === 'staff') {
+    const staffNavItems: {
+      key: StaffTab;
+      label: string;
+      icon: string;
+      badge?: number;
+    }[] = [
+      { key: 'dashboard', label: 'Tổng quan', icon: 'grid' },
+      { key: 'books', label: 'Kho sách', icon: 'book-open' },
+      {
+        key: 'orders',
+        label: 'Đơn hàng',
+        icon: 'clipboard',
+        badge: pendingOrdersCount,
+      },
+    ];
+
     return (
       <View style={[styles.container, styles.staffContainer]}>
-        <View style={styles.topRow}>
-          <View style={styles.brandContainer}>
+        <View
+          style={[
+            styles.innerContainer,
+            { paddingHorizontal: isDesktop ? 24 : 16 },
+          ]}
+        >
+          {/* Left: Brand */}
+          <Pressable
+            style={styles.brandContainer}
+            onPress={() => setStaffTab('dashboard')}
+          >
             <View style={styles.staffIconBox}>
-              <MaterialCommunityIcons name="shield-account" size={22} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="shield-account"
+                size={22}
+                color="#FFFFFF"
+              />
             </View>
             <View>
-              <Text style={styles.staffTitle}>Quản trị kho sách</Text>
+              <Text style={styles.staffTitle}>BookStore Admin</Text>
+              <Text style={styles.staffSubtitle}>Hệ thống quản lý</Text>
             </View>
-          </View>
+          </Pressable>
 
+          {/* Center: Desktop Navigation */}
+          {isWide && (
+            <View style={styles.desktopNav}>
+              {staffNavItems.map((item) => {
+                const isActive = staffTab === item.key;
+                return (
+                  <Pressable
+                    key={item.key}
+                    style={[
+                      styles.staffNavItem,
+                      isActive && styles.staffNavItemActive,
+                    ]}
+                    onPress={() => setStaffTab(item.key)}
+                  >
+                    <Feather
+                      name={item.icon as any}
+                      size={16}
+                      color={isActive ? '#FFFFFF' : '#94A3B8'}
+                    />
+                    <Text
+                      style={[
+                        styles.staffNavText,
+                        isActive && styles.staffNavTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {item.badge && item.badge > 0 ? (
+                      <View style={styles.navBadge}>
+                        <Text style={styles.navBadgeText}>{item.badge}</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Right Actions */}
           <View style={styles.actionsContainer}>
-            {/* Quick Add Book */}
             <Pressable
               style={styles.staffAddButton}
               onPress={() => openBookForm()}
               hitSlop={8}
             >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Ionicons name="add" size={18} color="#FFFFFF" />
               <Text style={styles.staffAddText}>Thêm sách</Text>
             </Pressable>
 
-            {/* Logout to Customer Mode */}
             <Pressable
               style={styles.staffLogoutButton}
               onPress={handleStaffLogout}
               hitSlop={8}
             >
-              <Feather name="log-out" size={16} color="#DC2626" />
-              <Text style={styles.staffLogoutText}>Thoát</Text>
+              <Feather name="log-out" size={15} color="#FCA5A5" />
+              <Text style={styles.staffLogoutText}>Đăng xuất</Text>
             </Pressable>
           </View>
         </View>
@@ -58,12 +150,36 @@ export const Header: React.FC = () => {
     );
   }
 
-  // CUSTOMER HEADER: Pure, clean, welcoming, NO staff switch button!
+  // CUSTOMER HEADER
+  const customerNavItems: {
+    key: CustomerTab;
+    label: string;
+    icon: string;
+    badge?: number;
+  }[] = [
+    { key: 'home', label: 'Khám phá', icon: 'compass' },
+    {
+      key: 'orders',
+      label: 'Đơn mua',
+      icon: 'package',
+      badge: activeOrdersCount,
+    },
+    { key: 'account', label: 'Tài khoản', icon: 'user' },
+  ];
+
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
+      <View
+        style={[
+          styles.innerContainer,
+          { paddingHorizontal: isDesktop ? 24 : 16 },
+        ]}
+      >
         {/* Brand Logo and Title */}
-        <View style={styles.brandContainer}>
+        <Pressable
+          style={styles.brandContainer}
+          onPress={() => setCustomerTab('home')}
+        >
           <Image
             source={require('../../assets/logo.png')}
             style={styles.logo}
@@ -71,20 +187,59 @@ export const Header: React.FC = () => {
           />
           <View>
             <Text style={styles.appName}>BookStore</Text>
+            <Text style={styles.appTagline}>Nhà sách trực tuyến</Text>
           </View>
-        </View>
+        </Pressable>
+
+        {/* Desktop Top Navigation */}
+        {isWide && (
+          <View style={styles.desktopNav}>
+            {customerNavItems.map((item) => {
+              const isActive = customerTab === item.key;
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[
+                    styles.customerNavItem,
+                    isActive && styles.customerNavItemActive,
+                  ]}
+                  onPress={() => setCustomerTab(item.key)}
+                >
+                  <Feather
+                    name={item.icon as any}
+                    size={16}
+                    color={isActive ? '#2563EB' : '#64748B'}
+                  />
+                  <Text
+                    style={[
+                      styles.customerNavText,
+                      isActive && styles.customerNavTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.badge && item.badge > 0 ? (
+                    <View style={styles.navBadge}>
+                      <Text style={styles.navBadgeText}>{item.badge}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {/* Right Action: Cart */}
         <View style={styles.actionsContainer}>
           <Pressable
-            style={styles.cartButton}
+            style={[styles.cartButton, isWide && styles.cartButtonWide]}
             onPress={openCart}
             hitSlop={8}
-            android_ripple={{ color: '#EFF6FF', borderless: true }}
           >
-            <Feather name="shopping-bag" size={22} color="#1E293B" />
+            <Feather name="shopping-bag" size={20} color="#1E293B" />
+            {isWide && <Text style={styles.cartButtonText}>Giỏ hàng</Text>}
             {cartCount > 0 && (
-              <View style={styles.badge}>
+              <View style={isWide ? styles.badgeInline : styles.badge}>
                 <Text style={styles.badgeText}>
                   {cartCount > 99 ? '99+' : cartCount}
                 </Text>
@@ -102,21 +257,19 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingTop: Platform.OS === 'android' ? 36 : 14,
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomColor: '#E2E8F0',
+    paddingTop: Platform.OS === 'android' ? 36 : 12,
+    paddingBottom: 12,
+    zIndex: 100,
   },
   staffContainer: {
     backgroundColor: '#0F172A',
     borderBottomColor: '#1E293B',
   },
-  topRow: {
+  innerContainer: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -127,31 +280,79 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logo: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 10,
   },
   appName: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
-  sloganRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 1,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  sloganText: {
+  appTagline: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+  },
+  desktopNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  customerNavItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  customerNavItemActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  customerNavText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  customerNavTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  staffNavItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  staffNavItemActive: {
+    backgroundColor: '#1E293B',
+  },
+  staffNavText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  staffNavTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  navBadge: {
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  navBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -169,29 +370,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  cartButtonWide: {
+    width: 'auto',
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cartButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
+    top: -4,
+    right: -4,
     backgroundColor: '#EF4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
+  badgeInline: {
+    backgroundColor: '#2563EB',
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: 'bold',
+    fontSize: 10,
+    fontWeight: '800',
   },
   staffIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
@@ -199,9 +421,9 @@ const styles = StyleSheet.create({
   staffTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#F8FAFC',
+    color: '#FFFFFF',
   },
-  staffSub: {
+  staffSubtitle: {
     fontSize: 11,
     color: '#94A3B8',
   },
@@ -209,28 +431,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2563EB',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
-    gap: 4,
+    gap: 5,
   },
   staffAddText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   staffLogoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    gap: 6,
   },
   staffLogoutText: {
-    color: '#DC2626',
-    fontSize: 12,
+    color: '#FCA5A5',
+    fontSize: 13,
     fontWeight: '700',
   },
 });

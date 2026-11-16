@@ -1,64 +1,84 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useApp } from '../context/AppContext';
 import { CATEGORIES } from '../services/mockapi';
+import { MAX_CONTENT_WIDTH, useResponsive } from '../utils/responsive';
 
 export const CategoryChips: React.FC = () => {
   const { selectedCategory, setSelectedCategory, books } = useApp();
+  const { horizontalPadding } = useResponsive();
 
   const getCategoryCount = (cat: string) => {
     if (cat === 'Tất cả') return books.length;
-    return books.filter((b) => b.category.toLowerCase() === cat.toLowerCase()).length;
+    return books.filter((b) => b.category.toLowerCase() === cat.toLowerCase())
+      .length;
   };
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.container}
-      >
-        {CATEGORIES.map((category) => {
-          const isSelected = selectedCategory === category;
-          const count = getCategoryCount(category);
+      <View style={styles.innerWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.container,
+            { paddingHorizontal: horizontalPadding },
+          ]}
+        >
+          {CATEGORIES.map((category) => {
+            const isSelected = selectedCategory === category;
+            const count = getCategoryCount(category);
 
-          return (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.chip,
-                isSelected ? styles.chipSelected : styles.chipUnselected,
-              ]}
-              onPress={() => setSelectedCategory(category)}
-              activeOpacity={0.7}
-            >
-              <Text
+            return (
+              <TouchableOpacity
+                key={category}
                 style={[
-                  styles.chipText,
-                  isSelected ? styles.chipTextSelected : styles.chipTextUnselected,
+                  styles.chip,
+                  isSelected ? styles.chipSelected : styles.chipUnselected,
                 ]}
-              >
-                {category}
-              </Text>
-              <View
-                style={[
-                  styles.countBadge,
-                  isSelected ? styles.countBadgeSelected : styles.countBadgeUnselected,
-                ]}
+                onPress={() => setSelectedCategory(category)}
+                activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    styles.countText,
-                    isSelected ? styles.countTextSelected : styles.countTextUnselected,
+                    styles.chipText,
+                    isSelected
+                      ? styles.chipTextSelected
+                      : styles.chipTextUnselected,
                   ]}
                 >
-                  {count}
+                  {category}
                 </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <View
+                  style={[
+                    styles.countBadge,
+                    isSelected
+                      ? styles.countBadgeSelected
+                      : styles.countBadgeUnselected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.countText,
+                      isSelected
+                        ? styles.countTextSelected
+                        : styles.countTextUnselected,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 };
@@ -67,9 +87,15 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  innerWrapper: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
   },
   container: {
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -77,8 +103,8 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     gap: 6,
@@ -123,4 +149,3 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 });
-

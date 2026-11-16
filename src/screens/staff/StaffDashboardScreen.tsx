@@ -1,7 +1,6 @@
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import {
-  FlatList,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,14 @@ import {
   View,
 } from 'react-native';
 import { useApp } from '../../context/AppContext';
+import {
+  confirmDialog,
+  MAX_CONTENT_WIDTH,
+  useResponsive,
+} from '../../utils/responsive';
+
+const formatPrice = (val: number) =>
+  new Intl.NumberFormat('vi-VN').format(val) + ' đ';
 
 export const StaffDashboardScreen: React.FC = () => {
   const {
@@ -17,29 +24,76 @@ export const StaffDashboardScreen: React.FC = () => {
     orders,
     setStaffTab,
     openBookForm,
-    openMockApiModal,
     updateOrderStatus,
     isLoading,
     refreshData,
   } = useApp();
+  const { isDesktop, horizontalPadding } = useResponsive();
 
-  const formatPrice = (val: number) => {
-    return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
-  };
-
-  // KPIs - Doanh thu chỉ tính đơn Hoàn tất
-  const totalRevenue = orders
-    .filter((o) => o.status === 'Hoàn thành')
-    .reduce((sum, o) => sum + o.totalAmount, 0);
-
+  // Business rules: doanh thu chỉ tính đơn Hoàn thành, sắp hết = tồn ≤ 5
+  const completedOrders = orders.filter((o) => o.status === 'Hoàn thành');
+  const revenue = completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
   const pendingOrders = orders.filter((o) => o.status === 'Chờ xác nhận');
-  const lowStockBooks = books.filter((b) => b.stock <= 5);
-  const totalStockCount = books.reduce((sum, b) => sum + b.stock, 0);
+  const lowStockBooks = books
+    .filter((b) => b.stock <= 5)
+    .sort((a, b) => a.stock - b.stock);
+
+  const stats = [
+    {
+      label: 'Doanh thu',
+      value: formatPrice(revenue),
+      icon: 'dollar-sign',
+      color: '#059669',
+      bg: '#ECFDF5',
+      onPress: undefined,
+    },
+    {
+      label: 'Đơn chờ xác nhận',
+      value: String(pendingOrders.length),
+      icon: 'clock',
+      color: '#D97706',
+      bg: '#FEF3C7',
+      onPress: () => setStaffTab('orders'),
+    },
+    {
+      label: 'Tổng đầu sách',
+      value: String(books.length),
+      icon: 'book',
+      color: '#2563EB',
+      bg: '#EFF6FF',
+      onPress: () => setStaffTab('books'),
+    },
+    {
+      label: 'Sách sắp hết',
+      value: String(lowStockBooks.length),
+      icon: 'alert-triangle',
+      color: '#DC2626',
+      bg: '#FEF2F2',
+      onPress: () => setStaffTab('books'),
+    },
+  ];
+
+  const handleApprove = (id: string) =>
+    confirmDialog('Duyệt đơn', `Chuyển đơn ${id} sang "Đang giao"?`, () =>
+      updateOrderStatus(id, 'Đang giao')
+    );
+
+  const handleCancel = (id: string) =>
+    confirmDialog(
+      'Hủy đơn',
+      `Hủy đơn ${id}? Sách sẽ được hoàn lại kho.`,
+      () => updateOrderStatus(id, 'Đã hủy'),
+      'Hủy đơn',
+      true
+    );
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingHorizontal: horizontalPadding },
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={isLoading}
@@ -49,197 +103,121 @@ export const StaffDashboardScreen: React.FC = () => {
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Title */}
-      <View style={styles.titleSection}>
-        <Text style={styles.dashboardTitle}>Bảng điều khiển</Text>
-      </View>
+      <View style={styles.wrapper}>
+        <Text style={styles.pageTitle}>Tổng quan</Text>
 
-      {/* KPI Cards Grid */}
-      <View style={styles.kpiGrid}>
-        {/* Doanh thu */}
-        <View style={[styles.kpiCard, { borderLeftColor: '#10B981' }]}>
-          <View style={styles.kpiHeader}>
-            <Text style={styles.kpiLabel}>Ước tính doanh thu</Text>
-            <View style={[styles.kpiIconBox, { backgroundColor: '#ECFDF5' }]}>
-              <MaterialCommunityIcons
-                name="currency-usd"
-                size={20}
-                color="#059669"
-              />
-            </View>
-          </View>
-          <Text style={styles.kpiValue}>{formatPrice(totalRevenue)}</Text>
-        </View>
-
-        {/* Đơn chờ duyệt */}
-        <TouchableOpacity
-          style={[styles.kpiCard, { borderLeftColor: '#F59E0B' }]}
-          onPress={() => setStaffTab('orders')}
-        >
-          <View style={styles.kpiHeader}>
-            <Text style={styles.kpiLabel}>Đơn chờ xác nhận</Text>
-            <View style={[styles.kpiIconBox, { backgroundColor: '#FEF3C7' }]}>
-              <Feather name="clock" size={18} color="#D97706" />
-            </View>
-          </View>
-          <Text style={[styles.kpiValue, { color: '#D97706' }]}>
-            {pendingOrders.length} đơn
-          </Text>
-        </TouchableOpacity>
-
-        {/* Tổng đầu sách */}
-        <TouchableOpacity
-          style={[styles.kpiCard, { borderLeftColor: '#2563EB' }]}
-          onPress={() => setStaffTab('books')}
-        >
-          <View style={styles.kpiHeader}>
-            <Text style={styles.kpiLabel}>Tổng đầu sách</Text>
-            <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
-              <Feather name="book" size={18} color="#2563EB" />
-            </View>
-          </View>
-          <Text style={styles.kpiValue}>{books.length} sách</Text>
-        </TouchableOpacity>
-
-        {/* Cảnh báo kho */}
-        <View style={[styles.kpiCard, { borderLeftColor: '#EF4444' }]}>
-          <View style={styles.kpiHeader}>
-            <Text style={styles.kpiLabel}>Sắp hết hàng</Text>
-            <View style={[styles.kpiIconBox, { backgroundColor: '#FEF2F2' }]}>
-              <Feather name="alert-triangle" size={18} color="#DC2626" />
-            </View>
-          </View>
-          <Text style={[styles.kpiValue, { color: '#DC2626' }]}>
-            {lowStockBooks.length} cuốn
-          </Text>
-        </View>
-      </View>
-
-      {/* Quick Action Buttons */}
-      <View style={styles.quickActionsSection}>
-        <Text style={styles.sectionHeader}>Thao tác nhanh</Text>
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => openBookForm()}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
-              <Feather name="plus-circle" size={20} color="#2563EB" />
-            </View>
-            <Text style={styles.actionButtonText}>Thêm sách mới</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setStaffTab('orders')}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#FEF3C7' }]}>
-              <Feather name="clipboard" size={20} color="#D97706" />
-            </View>
-            <Text style={styles.actionButtonText}>Xử lý đơn hàng</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Pending Orders Waiting for Approval */}
-      <View style={styles.pendingOrdersSection}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>
-            Đơn hàng cần xử lý ({pendingOrders.length})
-          </Text>
-          <TouchableOpacity onPress={() => setStaffTab('orders')}>
-            <Text style={styles.viewAllText}>Xem tất cả</Text>
-          </TouchableOpacity>
-        </View>
-
-        {pendingOrders.length === 0 ? (
-          <View style={styles.emptyPendingBox}>
-            <Feather name="check-circle" size={32} color="#10B981" />
-            <Text style={styles.emptyPendingText}>
-              Không có đơn hàng chờ xác nhận
-            </Text>
-          </View>
-        ) : (
-          pendingOrders.slice(0, 3).map((order) => (
-            <View key={order.id} style={styles.pendingCard}>
-              <View style={styles.pendingHeader}>
-                <View>
-                  <Text style={styles.orderId}>{order.id}</Text>
-                  <Text style={styles.customerName}>
-                    {order.customerName} - {order.phone}
-                  </Text>
-                </View>
-                <Text style={styles.orderTotal}>
-                  {formatPrice(order.totalAmount)}
-                </Text>
+        {/* 4 chỉ số chính */}
+        <View style={styles.statsGrid}>
+          {stats.map((s) => (
+            <TouchableOpacity
+              key={s.label}
+              style={[styles.statCard, { width: isDesktop ? '23.5%' : '48.5%' }]}
+              onPress={s.onPress}
+              disabled={!s.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
+                <Feather name={s.icon as any} size={18} color={s.color} />
               </View>
-
-              <Text style={styles.pendingAddress} numberOfLines={1}>
-                📍 {order.address}
+              <Text style={styles.statValue} numberOfLines={1}>
+                {s.value}
               </Text>
-
-              <View style={styles.pendingItemsPreview}>
-                <Text style={styles.previewCount}>
-                  {order.items.length} món sách:
-                </Text>
-                <Text style={styles.previewNames} numberOfLines={1}>
-                  {order.items.map((i) => `${i.title} (${i.quantity})`).join(', ')}
-                </Text>
-              </View>
-
-              <View style={styles.pendingActions}>
-                <TouchableOpacity
-                  style={styles.approveBtn}
-                  onPress={() => updateOrderStatus(order.id, 'Đang giao')}
-                >
-                  <Feather name="truck" size={14} color="#FFFFFF" />
-                  <Text style={styles.approveBtnText}>Duyệt & Giao</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.rejectBtn}
-                  onPress={() => updateOrderStatus(order.id, 'Đã hủy')}
-                >
-                  <Text style={styles.rejectBtnText}>Hủy đơn</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Low Stock Warning List */}
-      {lowStockBooks.length > 0 && (
-        <View style={styles.lowStockSection}>
-          <Text style={styles.sectionHeader}>
-            Cảnh báo sắp hết hàng ({lowStockBooks.length})
-          </Text>
-          <FlatList
-            horizontal
-            data={lowStockBooks}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.lowStockList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.lowStockCard}
-                onPress={() => openBookForm(item)}
-              >
-                <Text style={styles.lowStockTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={styles.lowStockAuthor}>{item.author}</Text>
-                <View style={styles.lowStockCountRow}>
-                  <Text style={styles.lowStockAlert}>
-                    Còn: {item.stock} cuốn
-                  </Text>
-                  <Text style={styles.restockPrompt}>Nhập thêm</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          />
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
+
+        <View style={isDesktop ? styles.twoCols : styles.oneCol}>
+          {/* Đơn chờ xác nhận */}
+          <View style={[styles.panel, isDesktop && { flex: 1 }]}>
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>Đơn chờ xác nhận</Text>
+              <TouchableOpacity onPress={() => setStaffTab('orders')}>
+                <Text style={styles.link}>Xem tất cả</Text>
+              </TouchableOpacity>
+            </View>
+
+            {pendingOrders.length === 0 ? (
+              <Text style={styles.empty}>Không có đơn nào cần xử lý</Text>
+            ) : (
+              pendingOrders.slice(0, 5).map((order, idx) => (
+                <View
+                  key={order.id}
+                  style={[styles.row, idx > 0 && styles.rowBorder]}
+                >
+                  <View style={styles.rowMain}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>
+                      {order.customerName}
+                    </Text>
+                    <Text style={styles.rowSub}>
+                      {order.items.length} sản phẩm ·{' '}
+                      {formatPrice(order.totalAmount)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.btnPrimary}
+                    onPress={() => handleApprove(order.id)}
+                  >
+                    <Text style={styles.btnPrimaryText}>Duyệt</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.btnGhost}
+                    onPress={() => handleCancel(order.id)}
+                  >
+                    <Text style={styles.btnGhostText}>Hủy</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+
+          {/* Sách sắp hết */}
+          <View style={[styles.panel, isDesktop && { flex: 1 }]}>
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>Sách sắp hết hàng</Text>
+              <TouchableOpacity onPress={() => setStaffTab('books')}>
+                <Text style={styles.link}>Kho sách</Text>
+              </TouchableOpacity>
+            </View>
+
+            {lowStockBooks.length === 0 ? (
+              <Text style={styles.empty}>Tồn kho đang ổn định</Text>
+            ) : (
+              lowStockBooks.slice(0, 5).map((book, idx) => (
+                <TouchableOpacity
+                  key={book.id}
+                  style={[styles.row, idx > 0 && styles.rowBorder]}
+                  onPress={() => openBookForm(book)}
+                >
+                  <View style={styles.rowMain}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>
+                      {book.title}
+                    </Text>
+                    <Text style={styles.rowSub} numberOfLines={1}>
+                      {book.author}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.stockPill,
+                      book.stock <= 0 && styles.stockPillOut,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.stockPillText,
+                        book.stock <= 0 && styles.stockPillTextOut,
+                      ]}
+                    >
+                      {book.stock <= 0 ? 'Hết hàng' : `Còn ${book.stock}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 };
@@ -250,269 +228,152 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   content: {
-    padding: 16,
+    paddingTop: 20,
     paddingBottom: 100,
+  },
+  wrapper: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
     gap: 16,
   },
-  titleSection: {
-    marginBottom: 4,
-  },
-  dashboardTitle: {
-    fontSize: 20,
+  pageTitle: {
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
   },
-  dashboardSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  kpiGrid: {
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
   },
-  kpiCard: {
-    width: '48%',
+  statCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
   },
-  kpiHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  kpiLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
-    flex: 1,
-  },
-  kpiIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
   },
-  kpiValue: {
-    fontSize: 16,
+  statValue: {
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
   },
-  kpiNote: {
-    fontSize: 10,
-    color: '#94A3B8',
-    marginTop: 4,
+  statLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
   },
-  quickActionsSection: {
+  twoCols: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  oneCol: {
+    gap: 16,
+  },
+  panel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
-  sectionHeader: {
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  panelTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 10,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  viewAllText: {
-    fontSize: 12,
+  link: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#2563EB',
-    fontWeight: '600',
   },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  actionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  actionButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
+  empty: {
+    fontSize: 13,
+    color: '#94A3B8',
     textAlign: 'center',
+    paddingVertical: 24,
   },
-  pendingOrdersSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  emptyPendingBox: {
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    paddingVertical: 12,
     gap: 8,
   },
-  emptyPendingText: {
-    fontSize: 13,
-    color: '#10B981',
+  rowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  rowMain: {
+    flex: 1,
+  },
+  rowTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
-  },
-  pendingCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 10,
-  },
-  pendingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  orderId: {
-    fontSize: 13,
-    fontWeight: '800',
     color: '#0F172A',
   },
-  customerName: {
+  rowSub: {
     fontSize: 12,
-    color: '#475569',
-    marginTop: 1,
-  },
-  orderTotal: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  pendingAddress: {
-    fontSize: 11,
     color: '#64748B',
-    marginTop: 6,
+    marginTop: 2,
   },
-  pendingItemsPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
-    backgroundColor: '#FFFFFF',
-    padding: 6,
-    borderRadius: 6,
-  },
-  previewCount: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  previewNames: {
-    fontSize: 11,
-    color: '#64748B',
-    flex: 1,
-  },
-  pendingActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 10,
-  },
-  approveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  btnPrimary: {
     backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
-  approveBtnText: {
+  btnPrimaryText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
-  rejectBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-  },
-  rejectBtnText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  lowStockSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
+  btnGhost: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  lowStockList: {
-    gap: 10,
+  btnGhostText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  lowStockCard: {
-    width: 150,
+  stockPill: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  stockPillOut: {
     backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 8,
-    padding: 10,
   },
-  lowStockTitle: {
+  stockPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#991B1B',
+    color: '#B45309',
   },
-  lowStockAuthor: {
-    fontSize: 10,
-    color: '#7F1D1D',
-    marginTop: 2,
-  },
-  lowStockCountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  lowStockAlert: {
-    fontSize: 11,
-    fontWeight: '800',
+  stockPillTextOut: {
     color: '#DC2626',
   },
-  restockPrompt: {
-    fontSize: 10,
-    color: '#2563EB',
-    fontWeight: '700',
-  },
 });
-

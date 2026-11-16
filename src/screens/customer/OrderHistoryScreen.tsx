@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
   RefreshControl,
@@ -12,10 +11,29 @@ import {
 } from 'react-native';
 import { useApp } from '../../context/AppContext';
 import { Order, OrderStatus } from '../../types';
+import {
+  confirmDialog,
+  MAX_CONTENT_WIDTH,
+  useResponsive,
+} from '../../utils/responsive';
 
 export const OrderHistoryScreen: React.FC = () => {
-  const { orders, updateOrderStatus, isLoading, refreshData, setCustomerTab } = useApp();
+  const {
+    orders,
+    updateOrderStatus,
+    isLoading,
+    refreshData,
+    setCustomerTab,
+  } = useApp();
   const [selectedStatus, setSelectedStatus] = useState<string>('Tất cả');
+  const { isDesktop, horizontalPadding, contentWidth } = useResponsive();
+
+  const numColumns = isDesktop ? 2 : 1;
+  const cardGap = 16;
+  const cardWidth =
+    numColumns === 2
+      ? (contentWidth - horizontalPadding * 2 - cardGap) / 2
+      : undefined;
 
   const filterTabs = [
     'Tất cả',
@@ -67,57 +85,66 @@ export const OrderHistoryScreen: React.FC = () => {
   };
 
   const handleCancelOrder = (order: Order) => {
-    Alert.alert(
+    confirmDialog(
       'Hủy đơn hàng',
-      `Bạn có muốn hủy đơn hàng ${order.id}?`,
-      [
-        { text: 'Không', style: 'cancel' },
-        {
-          text: 'Hủy đơn',
-          style: 'destructive',
-          onPress: () => updateOrderStatus(order.id, 'Đã hủy'),
-        },
-      ]
+      `Bạn có chắc chắn muốn hủy đơn hàng ${order.id}?`,
+      () => updateOrderStatus(order.id, 'Đã hủy'),
+      'Hủy đơn',
+      true
     );
   };
 
   return (
     <View style={styles.container}>
       {/* Title & Filter Tabs */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Đơn mua</Text>
-      </View>
+      <View style={styles.topSection}>
+        <View
+          style={[
+            styles.centeredBlock,
+            { paddingHorizontal: horizontalPadding },
+          ]}
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Lịch sử đơn mua</Text>
+            <Text style={styles.headerSubtitle}>
+              Theo dõi trạng thái và lịch sử các đơn hàng của bạn
+            </Text>
+          </View>
 
-      {/* Status Filter Scroll */}
-      <View style={styles.filterScrollWrapper}>
-        <FlatList
-          horizontal
-          data={filterTabs}
-          keyExtractor={(item) => item}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item }) => {
-            const isActive = selectedStatus === item;
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.filterTab,
-                  isActive && styles.filterTabActive,
-                ]}
-                onPress={() => setSelectedStatus(item)}
-              >
-                <Text
+          <FlatList
+            horizontal
+            data={filterTabs}
+            keyExtractor={(item) => item}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterList}
+            renderItem={({ item }) => {
+              const isActive = selectedStatus === item;
+              const count =
+                item === 'Tất cả'
+                  ? orders.length
+                  : orders.filter((o) => o.status === item).length;
+
+              return (
+                <TouchableOpacity
                   style={[
-                    styles.filterTabText,
-                    isActive && styles.filterTabTextActive,
+                    styles.filterTab,
+                    isActive && styles.filterTabActive,
                   ]}
+                  onPress={() => setSelectedStatus(item)}
                 >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      isActive && styles.filterTabTextActive,
+                    ]}
+                  >
+                    {item} ({count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
       </View>
 
       {/* Orders List */}
@@ -129,14 +156,30 @@ export const OrderHistoryScreen: React.FC = () => {
             style={styles.shopNowBtn}
             onPress={() => setCustomerTab('home')}
           >
-            <Text style={styles.shopNowText}>Mua sách ngay</Text>
+            <Text style={styles.shopNowText}>Khám phá sách ngay</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={filteredOrders}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.ordersList}
+          numColumns={numColumns}
+          key={`orders-cols-${numColumns}`}
+          columnWrapperStyle={
+            numColumns > 1
+              ? {
+                  gap: cardGap,
+                  paddingHorizontal: horizontalPadding,
+                  maxWidth: MAX_CONTENT_WIDTH,
+                  width: '100%',
+                  alignSelf: 'center',
+                }
+              : undefined
+          }
+          contentContainerStyle={[
+            styles.ordersList,
+            numColumns === 1 && { paddingHorizontal: horizontalPadding },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
@@ -147,7 +190,12 @@ export const OrderHistoryScreen: React.FC = () => {
           renderItem={({ item }) => {
             const statusStyle = getStatusColor(item.status);
             return (
-              <View style={styles.orderCard}>
+              <View
+                style={[
+                  styles.orderCard,
+                  cardWidth ? { width: cardWidth } : undefined,
+                ]}
+              >
                 {/* Order Header */}
                 <View style={styles.orderCardHeader}>
                   <View>
@@ -228,7 +276,7 @@ export const OrderHistoryScreen: React.FC = () => {
                 {/* Footer Total & Actions */}
                 <View style={styles.orderFooter}>
                   <View>
-                    <Text style={styles.totalLabel}>Tổng tiền:</Text>
+                    <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
                     <Text style={styles.totalValue}>
                       {formatPrice(item.totalAmount)}
                     </Text>
@@ -257,46 +305,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+  topSection: {
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 12,
+  },
+  centeredBlock: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
+  },
+  header: {
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     marginTop: 2,
   },
-  filterScrollWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 8,
-  },
   filterList: {
-    paddingHorizontal: 16,
     gap: 8,
   },
   filterTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   filterTabActive: {
     backgroundColor: '#EFF6FF',
-    borderWidth: 1,
     borderColor: '#3B82F6',
   },
   filterTabText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#64748B',
   },
   filterTabTextActive: {
@@ -304,21 +355,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ordersList: {
-    padding: 16,
-    gap: 14,
+    paddingTop: 16,
+    gap: 16,
     paddingBottom: 100,
+    maxWidth: MAX_CONTENT_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
   },
   orderCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
+    justifyContent: 'space-between',
   },
   orderCardHeader: {
     flexDirection: 'row',
@@ -349,25 +404,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   itemsWrapper: {
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
+    gap: 10,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   itemThumb: {
-    width: 36,
-    height: 50,
-    borderRadius: 4,
+    width: 40,
+    height: 54,
+    borderRadius: 6,
     backgroundColor: '#F1F5F9',
   },
   itemInfo: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#1E293B',
   },
@@ -376,25 +431,25 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   itemQtyPrice: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#059669',
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   recipientBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    padding: 8,
-    gap: 4,
+    borderRadius: 10,
+    padding: 10,
+    gap: 5,
     marginVertical: 4,
   },
   recipientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   recipientText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#475569',
     flex: 1,
   },
@@ -403,7 +458,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -412,21 +467,21 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   totalValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     color: '#DC2626',
   },
   cancelBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
   },
   cancelBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#DC2626',
   },
   emptyContainer: {
@@ -441,19 +496,12 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginTop: 16,
   },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 18,
-  },
   shopNowBtn: {
     marginTop: 20,
     backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   shopNowText: {
     color: '#FFFFFF',
@@ -461,4 +509,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

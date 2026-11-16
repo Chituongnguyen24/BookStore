@@ -2,15 +2,17 @@ import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../context/AppContext';
+import { useResponsive } from '../utils/responsive';
 
 export const FloatingCartButton: React.FC = () => {
   const { role, cartCount, openCart } = useApp();
+  const { isWide } = useResponsive();
 
   if (role !== 'customer' || cartCount === 0) return null;
 
   return (
     <Pressable
-      style={styles.fab}
+      style={[styles.fab, isWide && styles.fabDesktop]}
       onPress={openCart}
       android_ripple={{ color: '#1D4ED8' }}
     >
@@ -28,7 +30,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 75,
+    bottom: 78,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -36,11 +38,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 8,
     zIndex: 999,
+  },
+  fabDesktop: {
+    right: 32,
+    bottom: 32,
   },
   badge: {
     position: 'absolute',
@@ -63,4 +69,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

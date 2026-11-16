@@ -1,63 +1,49 @@
 import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Alert,
   Image,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { Book } from '../types';
+import { confirmDialog, useResponsive } from '../utils/responsive';
 
 interface BookCardProps {
   book: Book;
 }
 
-// Tính số cột dựa trên chiều rộng màn hình
-export const getNumColumns = (width: number): number => {
-  if (width >= 1200) return 5;
-  if (width >= 900) return 4;
-  if (width >= 600) return 3;
-  return 2;
-};
-
 export const BookCard: React.FC<BookCardProps> = ({ book }) => {
-  const { role, addToCart, openBookDetail, openBookForm, deleteBook } = useApp();
+  const { role, addToCart, openBookDetail, openBookForm, deleteBook } =
+    useApp();
   const [imageError, setImageError] = useState(false);
-  const { width } = useWindowDimensions();
-
-  const numCols = getNumColumns(width);
-  const GAP = 12;
-  const H_PADDING = 16;
-  // Chiều rộng mỗi card = (màn hình - 2 lề - khoảng cách giữa các cột) / số cột
-  const cardWidth = (width - H_PADDING * 2 - GAP * (numCols - 1)) / numCols;
+  const { bookCardWidth } = useResponsive();
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
   };
 
+  const discountPercent =
+    book.originalPrice && book.originalPrice > book.price
+      ? Math.round(((book.originalPrice - book.price) / book.originalPrice) * 100)
+      : 0;
+
   const handleDelete = () => {
-    Alert.alert(
+    confirmDialog(
       'Xóa sách',
       `Bạn có chắc chắn muốn xóa "${book.title}" khỏi danh mục?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa ngay',
-          style: 'destructive',
-          onPress: () => deleteBook(book.id),
-        },
-      ]
+      () => deleteBook(book.id),
+      'Xóa ngay',
+      true
     );
   };
 
   return (
     <Pressable
-      style={[styles.card, { width: cardWidth }]}
+      style={[styles.card, { width: bookCardWidth }]}
       onPress={() => openBookDetail(book)}
       android_ripple={{ color: '#F1F5F9' }}
     >
@@ -79,42 +65,48 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
           <Text style={styles.categoryText}>{book.category}</Text>
         </View>
 
-        {/* Low stock or Out of stock badge */}
+        {/* Discount or Stock Badge */}
         {book.stock <= 0 ? (
           <View style={[styles.stockBadge, styles.stockBadgeOut]}>
             <Text style={styles.stockTextOut}>Hết hàng</Text>
           </View>
         ) : book.stock <= 5 ? (
           <View style={[styles.stockBadge, styles.stockBadgeLow]}>
-            <Text style={styles.stockTextLow}>Chỉ còn {book.stock}</Text>
+            <Text style={styles.stockTextLow}>Còn {book.stock}</Text>
+          </View>
+        ) : discountPercent > 0 ? (
+          <View style={[styles.stockBadge, styles.discountBadge]}>
+            <Text style={styles.stockTextOut}>-{discountPercent}%</Text>
           </View>
         ) : null}
       </View>
 
       {/* Info Container */}
       <View style={styles.infoWrapper}>
-        <Text style={styles.title} numberOfLines={2}>
-          {book.title}
-        </Text>
+        <View>
+          <Text style={styles.title} numberOfLines={2}>
+            {book.title}
+          </Text>
 
-        <Text style={styles.author} numberOfLines={1}>
-          {book.author}
-        </Text>
+          <Text style={styles.author} numberOfLines={1}>
+            {book.author}
+          </Text>
 
-        {/* Rating & Stock */}
-        <View style={styles.metaRow}>
-          <View style={styles.ratingBox}>
-            <FontAwesome name="star" size={12} color="#F59E0B" />
-            <Text style={styles.ratingText}>
-              {book.rating ? book.rating.toFixed(1) : '5.0'}
-            </Text>
+          {/* Rating & Stock */}
+          <View style={styles.metaRow}>
+            <View style={styles.ratingBox}>
+              <FontAwesome name="star" size={12} color="#F59E0B" />
+              <Text style={styles.ratingText}>
+                {book.rating ? book.rating.toFixed(1) : '5.0'}
+              </Text>
+            </View>
+            <Text style={styles.stockLabel}>Kho: {book.stock}</Text>
           </View>
-          <Text style={styles.stockLabel}>Kho: {book.stock}</Text>
         </View>
 
         {/* Price & Action */}
         <View style={styles.priceRow}>
-          <View>
+          <View style={styles.priceCol}>
             <Text style={styles.price}>{formatPrice(book.price)}</Text>
             {book.originalPrice && book.originalPrice > book.price ? (
               <Text style={styles.originalPrice}>
@@ -131,7 +123,10 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
                 book.stock <= 0 && styles.addCartBtnDisabled,
               ]}
               disabled={book.stock <= 0}
-              onPress={() => addToCart(book, 1)}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                addToCart(book, 1);
+              }}
               hitSlop={6}
             >
               <Feather name="plus" size={18} color="#FFFFFF" />
@@ -140,14 +135,20 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
             <View style={styles.staffActionGroup}>
               <TouchableOpacity
                 style={styles.staffEditBtn}
-                onPress={() => openBookForm(book)}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  openBookForm(book);
+                }}
                 hitSlop={4}
               >
                 <Feather name="edit-2" size={13} color="#2563EB" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.staffDeleteBtn}
-                onPress={handleDelete}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleDelete();
+                }}
                 hitSlop={4}
               >
                 <Ionicons name="trash-outline" size={14} color="#EF4444" />
@@ -163,20 +164,20 @@ export const BookCard: React.FC<BookCardProps> = ({ book }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   imageWrapper: {
     width: '100%',
-    aspectRatio: 0.85,
+    aspectRatio: 0.8,
     backgroundColor: '#F1F5F9',
     position: 'relative',
     overflow: 'hidden',
@@ -192,11 +193,11 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   categoryText: {
@@ -206,11 +207,11 @@ const styles = StyleSheet.create({
   },
   stockBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    top: 10,
+    right: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   stockBadgeOut: {
     backgroundColor: '#EF4444',
@@ -218,77 +219,88 @@ const styles = StyleSheet.create({
   stockBadgeLow: {
     backgroundColor: '#F59E0B',
   },
+  discountBadge: {
+    backgroundColor: '#DC2626',
+  },
   stockTextOut: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
   },
   stockTextLow: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
   },
   infoWrapper: {
-    padding: 10,
+    padding: 12,
     justifyContent: 'space-between',
     flex: 1,
   },
   title: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
-    lineHeight: 18,
-    minHeight: 36,
+    color: '#0F172A',
+    lineHeight: 19,
+    minHeight: 38,
   },
   author: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 8,
   },
   ratingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   ratingText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#B45309',
   },
   stockLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#94A3B8',
+    fontWeight: '500',
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 10,
-    paddingTop: 6,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    borderTopColor: '#F1F5F9',
+  },
+  priceCol: {
+    flex: 1,
   },
   price: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: '#DC2626',
   },
   originalPrice: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#94A3B8',
     textDecorationLine: 'line-through',
     marginTop: 1,
   },
   addCartBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
@@ -299,23 +311,22 @@ const styles = StyleSheet.create({
   staffActionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   staffEditBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   staffDeleteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
-
